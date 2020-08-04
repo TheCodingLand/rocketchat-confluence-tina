@@ -1,0 +1,128 @@
+version: "2.4"
+# dont forget to declare DOMAIN environment variable for traefik to work, or use the .env file
+services:
+
+  # traefik:
+  #   image: traefik:v2.2
+  #   restart: unless-stopped 
+  #   command:
+  #     - "--api=true"
+  #     - "--api.dashboard=true"
+  #     - "--entrypoints.web.address=:80"
+  #     - "--entrypoints.websecure.address=:443"
+  #     - "--providers.file.directory=/configuration/"
+  #     - "--providers.docker=true"
+  #     - "--providers.docker.exposedbydefault=false"
+  #     - "--providers.docker.watch=true"
+  #     - "--providers.docker.endpoint=unix:///var/run/docker.sock"
+  #     - "--providers.docker.network=proxy"
+  #     - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+  #     - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+  #     - "--entrypoints.web.http.redirections.entrypoint.permanent=true"
+
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #     - ./volumes/certs:/certs
+  #     - ./volumes/configuration:/configuration/
+
+  #   networks:
+  #     - proxy
+
+  #   ports:
+  #     - 80:80
+  #     - 443:443
+
+  #   labels:
+
+  #       - "traefik.http.routers.traefik.entrypoints=web,websecure"
+  #       - "traefik.http.routers.traefik.tls=true"
+  #       - "traefik.enable=true"
+  #       - "traefik.http.routers.traefik.rule=Host(`traefik.${DOMAIN}`)"
+  #       - "traefik.http.routers.traefik.service=api@internal"
+  rc-db:
+    image: mongo:4.0
+    volumes:
+      - ./volumes/mongo/runtime/db:/data/db
+      - ./volumes/mongo/dump:/dump
+    networks:
+      - proxy
+    command: mongod --smallfiles --oplogSize 128 --replSet rs0 --storageEngine=mmapv1
+  mongo-init-replica:
+    image: mongo:4.0
+    command: >
+      bash -c
+        "for i in `seq 1 30`; do
+          mongo rc-db/rocketchat --eval \"
+            rs.initiate({
+              _id: 'rs0',
+              members: [ { _id: 0, host: 'localhost:27017' } ]})\" &&
+          s=$$? && break || s=$$?;
+          echo \"Tried $$i times. Waiting 5 secs...\";
+          sleep 5;
+        done; (exit $$s)"
+    depends_on:
+      - rc-db
+    networks:
+      - proxy
+
+  rocketchat:
+    image: rocketchat/rocket.chat:latest
+    command: >
+      bash -c
+        "for i in `seq 1 30`; do
+          node main.js &&
+          s=$$? && break || s=$$?;
+          echo \"Tried $$i times. Waiting 5 secs...\";
+          sleep 5;
+        done; (exit $$s)"
+    restart: unless-stopped
+    volumes:
+      - ./volumes/uploads:/app/uploads
+    environment:
+      - PORT=3000
+      - ROOT_URL=https://chat.ctg.lu
+      - MONGO_URL=mongodb://rc-db:27017/rocketchat
+      - MONGO_OPLOG_URL=mongodb://rc-db:27017/local
+      - MAIL_URL=smtp://smtp.email
+    depends_on:
+      - rc-db
+  
+    labels:
+        - "traefik.http.routers.chat.rule=Host(`chat.${DOMAIN}`)"
+        - "traefik.http.routers.chat.entrypoints=web,websecure"
+        - "traefik.enable=true"
+        - "traefik.http.routers.chat.tls=true"
+        - "traefik.http.services.chat.loadbalancer.server.port=3000"
+
+    #ports:
+      #- 8818:3000
+    networks:
+      - proxy
+
+  hubot:
+    image: rocketchat/hubot-rocketchat
+
+    environment:
+      -  ROCKETCHAT_URL=rocketchat:3000
+      -  ROCKETCHAT_ROOM=GENERAL
+      -  RESPOND_TO_DM=true 
+      -  ROCKETCHAT_USER=confluence
+      -  ROCKETCHAT_PASSWORD=confluence
+      
+      -  HUBOT_CONFLUENCE_USER=admin
+      -  HUBOT_CONFLUENCE_PASSWORD=186o73l7
+      -  HUBOT_CONFLUENCE_HOST=confuence.ctg.lu
+      -  HUBOT_CONFLUENCE_PORT=443
+      -  HUBOT_CONFLUENCE_SEARCH_SPACE=root
+      -  HUBOT_CONFLUENCE_CONTEXT_ROOT=wiki
+
+      -  BOT_NAME=confluence
+      -  EXTERNAL_SCRIPTS=hubot-pugme,hubot-help,hubot-diagnostics
+    volumes:
+      - ./volumes/hubot/scripts:/home/hubot/scripts
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    external: true
