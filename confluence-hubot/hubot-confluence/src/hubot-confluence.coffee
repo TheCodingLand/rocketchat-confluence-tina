@@ -29,7 +29,7 @@ sanity_check_args = (msg) ->
       buf = "#hubot-confluence is not properly configured. #{arg} is not set."
       msg.reply buf
       return false
-
+  msg.reply buf
   return true
 
 query_tina = (query, links) ->

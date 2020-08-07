@@ -110,12 +110,12 @@ services:
       -  ROCKETCHAT_USER=${bot_user}
       -  ROCKETCHAT_PASSWORD=${bot_pass}
       
-      -  HUBOT_CONFLUENCE_USER=admin
-      -  HUBOT_CONFLUENCE_PASSWORD=186o73l7
+      -  HUBOT_CONFLUENCE_USER=confluence_rc_bot
+      -  HUBOT_CONFLUENCE_PASSWORD=B186o73l7
       -  HUBOT_CONFLUENCE_HOST=confuence.ctg.lu
       -  HUBOT_CONFLUENCE_PORT=443
-      -  HUBOT_CONFLUENCE_SEARCH_SPACE=root
-      -  HUBOT_CONFLUENCE_CONTEXT_ROOT=wiki
+      -  HUBOT_CONFLUENCE_SEARCH_SPACE=DEV
+      -  HUBOT_CONFLUENCE_CONTEXT_ROOT=DEV
     
       -  HUBOT_LOG_LEVEL
       -  BOT_NAME=confluence
