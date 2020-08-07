@@ -39,75 +39,76 @@ services:
   #       - "traefik.enable=true"
   #       - "traefik.http.routers.traefik.rule=Host(`traefik.${DOMAIN}`)"
   #       - "traefik.http.routers.traefik.service=api@internal"
-  rc-db:
-    image: mongo:4.0
-    volumes:
-      - ./volumes/mongo/runtime/db:/data/db
-      - ./volumes/mongo/dump:/dump
-    networks:
-      - proxy
-    command: mongod --smallfiles --oplogSize 128 --replSet rs0 --storageEngine=mmapv1
-  mongo-init-replica:
-    image: mongo:4.0
-    command: >
-      bash -c
-        "for i in `seq 1 30`; do
-          mongo rc-db/rocketchat --eval \"
-            rs.initiate({
-              _id: 'rs0',
-              members: [ { _id: 0, host: 'localhost:27017' } ]})\" &&
-          s=$$? && break || s=$$?;
-          echo \"Tried $$i times. Waiting 5 secs...\";
-          sleep 5;
-        done; (exit $$s)"
-    depends_on:
-      - rc-db
-    networks:
-      - proxy
+  #rc-db:
+  #  image: mongo:4.0
+  #  volumes:
+  #    - ./volumes/mongo/runtime/db:/data/db
+  #    - ./volumes/mongo/dump:/dump
+  #  networks:
+  #    - proxy
+  #  command: mongod --smallfiles --oplogSize 128 --replSet rs0 --storageEngine=mmapv1
+  #mongo-init-replica:
+  #  image: mongo:4.0
+  #  command: >
+  #    bash -c
+  #      "for i in `seq 1 30`; do
+  #        mongo rc-db/rocketchat --eval \"
+  #          rs.initiate({
+  #            _id: 'rs0',
+  #            members: [ { _id: 0, host: 'localhost:27017' } ]})\" &&
+  #        s=$$? && break || s=$$?;
+  #        echo \"Tried $$i times. Waiting 5 secs...\";
+  #        sleep 5;
+  #      done; (exit $$s)"
+  #  depends_on:
+  #    - rc-db
+  #  networks:
+  #    - proxy
 
-  rocketchat:
-    image: rocketchat/rocket.chat:latest
-    command: >
-      bash -c
-        "for i in `seq 1 30`; do
-          node main.js &&
-          s=$$? && break || s=$$?;
-          echo \"Tried $$i times. Waiting 5 secs...\";
-          sleep 5;
-        done; (exit $$s)"
-    restart: unless-stopped
-    volumes:
-      - ./volumes/uploads:/app/uploads
-    environment:
-      - PORT=3000
-      - ROOT_URL=https://chat.ctg.lu
-      - MONGO_URL=mongodb://rc-db:27017/rocketchat
-      - MONGO_OPLOG_URL=mongodb://rc-db:27017/local
-      - MAIL_URL=smtp://smtp.email
-    depends_on:
-      - rc-db
+  #rocketchat:
+  #  image: rocketchat/rocket.chat:latest
+  #  command: >
+  #    bash -c
+  #      "for i in `seq 1 30`; do
+  #        node main.js &&
+  #        s=$$? && break || s=$$?;
+  #        echo \"Tried $$i times. Waiting 5 secs...\";
+  #        sleep 5;
+  #      done; (exit $$s)"
+  #  restart: unless-stopped
+  #  volumes:
+  #    - ./volumes/uploads:/app/uploads
+  #  environment:
+  #    - PORT=3000
+  #    - ROOT_URL=https://chat.ctg.lu
+  #    - MONGO_URL=mongodb://rc-db:27017/rocketchat
+  #    - MONGO_OPLOG_URL=mongodb://rc-db:27017/local
+  #    - MAIL_URL=smtp://smtp.email
+  #  depends_on:
+  #    - rc-db
   
-    labels:
-        - "traefik.http.routers.chat.rule=Host(`chat.${DOMAIN}`)"
-        - "traefik.http.routers.chat.entrypoints=web,websecure"
-        - "traefik.enable=true"
-        - "traefik.http.routers.chat.tls=true"
-        - "traefik.http.services.chat.loadbalancer.server.port=3000"
+  #  labels:
+  #      - "traefik.http.routers.chat.rule=Host(`chat.${DOMAIN}`)"
+  #      - "traefik.http.routers.chat.entrypoints=web,websecure"
+  #      - "traefik.enable=true"
+  #      - "traefik.http.routers.chat.tls=true"
+  #      - "traefik.http.services.chat.loadbalancer.server.port=3000"
 
-    #ports:
-      #- 8818:3000
-    networks:
-      - proxy
+  #  #ports:
+  #    #- 8818:3000
+  #  networks:
+  #    - proxy
 
   hubot:
     image: rocketchat/hubot-rocketchat
 
     environment:
-      -  ROCKETCHAT_URL=rocketchat:3000
-      -  ROCKETCHAT_ROOM=GENERAL
+      -  ROCKETCHAT_URL=https://chat.ctg.lu
+      -  ROCKETCHAT_ROOM=general
       -  RESPOND_TO_DM=true 
-      -  ROCKETCHAT_USER=confluence
-      -  ROCKETCHAT_PASSWORD=confluence
+      -  ROCKETCHAT_AUTH= 'ldap'
+      -  ROCKETCHAT_USER=${bot_user}
+      -  ROCKETCHAT_PASSWORD=${bot_pass}
       
       -  HUBOT_CONFLUENCE_USER=admin
       -  HUBOT_CONFLUENCE_PASSWORD=186o73l7
@@ -115,7 +116,8 @@ services:
       -  HUBOT_CONFLUENCE_PORT=443
       -  HUBOT_CONFLUENCE_SEARCH_SPACE=root
       -  HUBOT_CONFLUENCE_CONTEXT_ROOT=wiki
-
+    
+      -  HUBOT_LOG_LEVEL
       -  BOT_NAME=confluence
       -  EXTERNAL_SCRIPTS=hubot-pugme,hubot-help,hubot-diagnostics
     volumes:
