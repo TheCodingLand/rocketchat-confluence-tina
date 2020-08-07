@@ -53,7 +53,7 @@ query_tina = (query, links) ->
 
 
 search = (msg, query, text) ->
-
+  msg.reply("seaching")
   query = clean_search(query)
 
   num_results = nconf.get("HUBOT_CONFLUENCE_NUM_RESULTS") or 3
