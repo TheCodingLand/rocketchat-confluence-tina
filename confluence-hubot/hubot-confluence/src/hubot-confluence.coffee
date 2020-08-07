@@ -102,9 +102,9 @@ search = (msg, query, text) ->
         break
       link = make_url(result._links.webui, false)
       links.append(link)
-      #msg.reply "#{result.title} - #{link}"
+      msg.reply "#{result.title} - #{link}"
     
-    query_tina(query,links)
+    #query_tina(query,links)
     #here, i should query tina
     
 
